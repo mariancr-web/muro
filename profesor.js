@@ -225,7 +225,7 @@ function pintarEditor(E, code) {
       <div class="editor__acciones"><a class="mcr-btn" href="${code ? `#/m/${code}` : '#/'}">Cancelar</a><button class="mcr-btn mcr-btn--prim" id="guardar" type="button">${code ? 'Guardar cambios' : 'Crear muro'}</button></div>
     </form>
     <aside class="editor__vista"><h2 class="mcr-seccion">Lo que verá el alumnado</h2><div class="vista-movil"><div class="vista-movil__cab">Nueva aportación</div><div id="vista"></div></div></aside>
-  </div>`, `<section class="mcr-trama-banda"><div class="mcr-contenedor mcr-hero"><h1>${code ? 'Ajustes del muro' : 'Nuevo muro'}</h1>${code ? `<p class="hero-meta">Código ${code}</p>` : ''}</div></section>`);
+  </div>`, `<section class="mcr-trama-banda"><div class="mcr-contenedor mcr-hero"><div class="hero-chips"><a class="volver" href="${code ? `#/m/${code}` : '#/'}">← ${code ? 'Volver al muro' : 'Muros'}</a></div><h1>${code ? 'Ajustes del muro' : 'Nuevo muro'}</h1>${code ? `<p class="hero-meta">Código ${code}</p>` : ''}</div></section>`);
   vista();
 
   function vista() {
@@ -337,16 +337,16 @@ function dibujarMuro(E, code) {
     <div class="hero-chips"><a class="volver" href="#/">← Muros</a><span class="chip-clase">${esc(nombreClase(w.curso, w.grupo))}</span>${w.abierto ? '<span class="mcr-vivo">Abierto</span>' : '<span class="pildora-cerrado">Cerrado</span>'}<span class="codigo-hero">Código <b>${code}</b></span></div>
     <h1>${rico(w.titulo || 'Muro')}</h1>
     ${w.descripcion ? `<div class="hero-desc">${rico(w.descripcion)}</div>` : ''}
-    <div class="mcr-hero__fila">
-      <div class="interruptores">${tog('abierto', 'Abierto')}${tog('moderacion', 'Revisar antes')}${tog('nombres', 'Nombres visibles')}</div>
-      <div class="hero-acciones">
-        <button class="mcr-btn mcr-btn--prim boton-claro" data-compartir type="button">Compartir</button>
-        <a class="mcr-btn mcr-btn--sec" href="#/p/${code}">Proyectar</a>
+    <div class="barra-muro">
+      <div class="grupo-hero"><span class="grupo-hero__nombre">Dar acceso</span><div class="grupo-hero__botones">
+        <button class="mcr-btn mcr-btn--prim boton-claro" data-compartir type="button">Compartir código y QR</button>
+        <a class="mcr-btn mcr-btn--sec" href="#/p/${code}">Proyectar en clase</a></div></div>
+      <div class="grupo-hero"><span class="grupo-hero__nombre">Estado del muro</span><div class="grupo-hero__botones interruptores">${tog('abierto', 'Abierto')}${tog('moderacion', 'Revisar antes')}${tog('nombres', 'Nombres visibles')}</div></div>
+      <div class="grupo-hero grupo-hero--fin"><span class="grupo-hero__nombre">Gestionar</span><div class="grupo-hero__botones">
         <a class="mcr-btn mcr-btn--sec" href="#/editar/${code}">Ajustes</a>
-        <button class="mcr-btn mcr-btn--sec" data-pdf type="button">PDF</button>
-        <button class="mcr-btn mcr-btn--sec" data-csv type="button">Excel</button>
-        <button class="mcr-btn mcr-btn--sec" data-nueva="" type="button">${ICO.mas} Publicar</button>
-      </div>
+        <details class="menu-exportar"><summary class="mcr-btn mcr-btn--sec">Exportar ▾</summary><div class="menu-exportar__lista">
+          <button type="button" data-pdf>PDF para imprimir</button><button type="button" data-csv>Excel con todas las aportaciones</button></div></details></div></div>
+    </div>
     </div></div></section>`;
   const htmlPend = pend.length ? `<section class="pendientes"><h2 class="mcr-seccion">Pendientes de revisar <span class="contador">${pend.length}</span></h2>
     <div class="fila"><button class="mcr-btn mcr-btn--peq mcr-btn--prim" data-aprobar-todas type="button">Aprobar todas</button></div>
@@ -356,7 +356,7 @@ function dibujarMuro(E, code) {
     <div class="tablero tablero--muro">${ocultas.map(p => pintarPost(p, { w, uid: U.uid, docente: true, oculta: true,
       acciones: `<button class="mcr-btn mcr-btn--peq" data-aprobar type="button">Volver a mostrar</button><button class="mcr-btn mcr-btn--peq mcr-btn--peligro" data-rechazar type="button">Borrar</button>` })).join('')}</div></details>` : '';
   const vacio = !posts.length && w.formato !== 'columnas' ? `<div class="mcr-vacio">Todavía no hay aportaciones publicadas. Pulsa «Compartir» para mostrar el código y el QR a la clase.<button class="mcr-btn mcr-btn--prim" data-compartir type="button">Compartir</button></div>` : '';
-  app.innerHTML = marco(`${htmlPend}${htmlOcultas}<h2 class="mcr-seccion">Publicadas <span class="contador">${posts.length}</span></h2>${vacio}
+  app.innerHTML = marco(`${htmlPend}${htmlOcultas}<div class="cab-publicadas"><h2 class="mcr-seccion">Publicadas <span class="contador">${posts.length}</span></h2><button class="mcr-btn mcr-btn--prim" data-nueva="" type="button">${ICO.mas} Publicar yo</button></div>${vacio}
     ${posts.length || w.formato === 'columnas' ? pintarTablero(posts, w, tarjeta, { botonColumna: true }) : ''}`, cab);
   app.querySelector('.ocultas')?.addEventListener('toggle', ev => { E.verOcultas = ev.target.open; });
   E.abiertos.forEach(id => { const c = app.querySelector(`.post[data-id="${CSS.escape(id)}"] .post__coms`); if (c) c.hidden = false; });
@@ -396,6 +396,7 @@ async function clicMuro(e, E, code) {
       return aviso({ abierto: val ? 'Muro abierto.' : 'Muro cerrado: ya no se puede publicar.', moderacion: val ? 'Las nuevas aportaciones esperarán tu revisión.' : 'Las aportaciones se publican directamente.', nombres: val ? 'La clase ve los nombres.' : 'Los nombres quedan ocultos para la clase.' }[k]);
     }
     if (t.closest('[data-compartir]')) return compartir(code, w);
+    if (t.closest('[data-pdf], [data-csv]')) t.closest('details')?.removeAttribute('open');
     if (t.closest('[data-pdf]')) return imprimir(E, code);
     if (t.closest('[data-csv]')) return descargarCSV(E, code);
     if (t.closest('[data-nueva]')) return publicarDocente(E, code, t.closest('[data-nueva]').dataset.nueva || '');

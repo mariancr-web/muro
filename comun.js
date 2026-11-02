@@ -87,7 +87,8 @@ export const TIPOS_CAMPO = {
   numero: 'Número',
   opciones: 'Elegir de una lista',
   enlace: 'Enlace',
-  imagen: 'Imagen o foto'
+  imagen: 'Imagen o foto',
+  drive: 'Vídeo o archivo de Drive'
 };
 export const camposPorDefecto = () => ([
   { id: 'titulo', tipo: 'titulo', nombre: 'Título', obligatorio: false },
@@ -137,6 +138,27 @@ export function pintarEnlace(u) {
     <span class="post-enlace__host">${ICO.enlace}${esc(host)}</span></a>`;
 }
 
+// ── Google Drive ────────────────────────────────────────────────
+export function idDrive(u) {
+  const s = String(u || '');
+  if (!/(drive|docs)\.google\.com/.test(s)) return '';
+  return (s.match(/\/d\/([\w-]{20,})/) || s.match(/[?&]id=([\w-]{20,})/) || [])[1] || '';
+}
+export function pintarDrive(u) {
+  const id = idDrive(u);
+  if (!id) return pintarEnlace(u);
+  const href = `https://drive.google.com/file/d/${id}/view`;
+  return `<div class="post-drive"><iframe src="https://drive.google.com/file/d/${esc(id)}/preview" allow="autoplay; fullscreen" allowfullscreen loading="lazy" title="Archivo de Drive"></iframe>
+    <a class="post-enlace__host" href="${esc(href)}" target="_blank" rel="noopener noreferrer">${ICO.enlace}Abrir en Drive</a></div>`;
+}
+const PASOS_DRIVE = `<ol class="pasos-drive">
+  <li>Pulsa <b>Abrir mi Drive</b> (entra con la cuenta del colegio).</li>
+  <li>Pulsa <b>+ Nuevo → Subir archivo</b> (en el móvil, el botón <b>+</b> → <b>Subir</b>) y elige tu vídeo. Espera a que termine de subir.</li>
+  <li>En el archivo, pulsa <b>⋮ → Compartir → Compartir</b>.</li>
+  <li>En <b>Acceso general</b> cambia «Restringido» por <b>«Cualquier persona con el enlace»</b>. Si no lo haces, nadie podrá verlo.</li>
+  <li>Pulsa <b>Copiar enlace</b>, vuelve aquí y pulsa <b>Pegar enlace</b>.</li>
+</ol>`;
+
 export const ICO = {
   enlace: '<svg viewBox="0 0 24 24" width="15" height="15" aria-hidden="true"><path d="M10 14a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1M14 10a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>',
   corazon: '<svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true"><path d="M12 20s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 10c0 5.6-7 10-7 10z" fill="currentColor"/></svg>',
@@ -159,6 +181,7 @@ export function pintarPost(p, opts) {
     if (c.tipo === 'titulo') partes.push(`<h3 class="post__titulo">${rico(val)}</h3>`);
     else if (c.tipo === 'imagen') partes.push(String(val).startsWith('data:image/') ? `<button class="post__img" data-ver-img type="button" aria-label="Ampliar imagen"><img src="${esc(val)}" alt="${esc(c.nombre)}" loading="lazy"></button>` : '');
     else if (c.tipo === 'enlace') partes.push(pintarEnlace(val));
+    else if (c.tipo === 'drive') partes.push(pintarDrive(val));
     else partes.push(`<div class="post__campo">${c.sinEtiqueta ? '' : `<span class="post__etiqueta">${esc(c.nombre)}</span>`}<div class="post__texto">${rico(val)}</div></div>`);
   }
   // Valores de campos que la docente ha borrado después: no se pierden
@@ -238,6 +261,13 @@ export function pintarFormulario(w, previo = {}, col = '') {
           return `<label class="campo">${nom}<select name="${esc(c.id)}"><option value="">Elige…</option>${opcionesDe(c).map(o => `<option${o === val ? ' selected' : ''}>${esc(o)}</option>`).join('')}</select></label>`;
         case 'enlace':
           return `<label class="campo">${nom}<input name="${esc(c.id)}" type="url" inputmode="url" maxlength="800" placeholder="https://…" value="${esc(val)}"></label>`;
+        case 'drive':
+          return `<div class="campo campo--drive" data-campo-drive>${nom}
+            <details class="drive-ayuda"${val ? '' : ' open'}><summary>Cómo subir tu vídeo a Drive</summary>${PASOS_DRIVE}</details>
+            <div class="campo__img-botones"><a class="mcr-btn mcr-btn--peq" href="https://drive.google.com/drive/my-drive" target="_blank" rel="noopener">Abrir mi Drive</a>
+            <button class="mcr-btn mcr-btn--peq" type="button" data-pegar>Pegar enlace</button></div>
+            <input name="${esc(c.id)}" type="url" inputmode="url" maxlength="800" placeholder="https://drive.google.com/file/d/…" value="${esc(val)}">
+            <p class="drive-estado" aria-live="polite"></p></div>`;
         case 'imagen':
           return `<div class="campo campo--imagen" data-campo-img="${esc(c.id)}">${nom}
             <input type="hidden" name="${esc(c.id)}" value="${esc(val)}">
@@ -268,6 +298,23 @@ export function activarFormulario(form) {
     };
     quitar.onclick = () => { oculto.value = ''; vista.innerHTML = ''; quitar.hidden = true; };
   });
+  form.querySelectorAll('[data-campo-drive]').forEach(box => {
+    const inp = box.querySelector('input');
+    const est = box.querySelector('.drive-estado');
+    const comprobar = () => {
+      const v = inp.value.trim();
+      est.className = 'drive-estado';
+      if (!v) { est.textContent = ''; return; }
+      if (idDrive(v)) { est.classList.add('ok'); est.textContent = '✓ Enlace de Drive correcto. Recuerda: «Cualquier persona con el enlace».'; }
+      else { est.classList.add('error'); est.textContent = '✗ Eso no es un enlace de un archivo de Drive. Copia el enlace desde «Compartir».'; }
+    };
+    inp.addEventListener('input', comprobar);
+    box.querySelector('[data-pegar]').onclick = async () => {
+      try { inp.value = (await navigator.clipboard.readText()).trim(); comprobar(); }
+      catch { est.className = 'drive-estado error'; est.textContent = 'Tu navegador no deja pegar con el botón: mantén pulsado el recuadro y elige «Pegar».'; inp.focus(); }
+    };
+    comprobar();
+  });
   const vista = form.querySelector('.form-post__vista');
   const pintar = () => {
     const txt = [...form.querySelectorAll('[data-formula]')].map(i => i.value).filter(tieneFormula);
@@ -284,6 +331,7 @@ export function leerFormulario(form, w) {
   for (const c of listaCampos(w)) {
     const el = form.elements[c.id];
     let val = el ? String(el.value || '').trim() : '';
+    if (c.tipo === 'drive' && val && !idDrive(val)) return { error: `«${c.nombre}»: pega el enlace del archivo de Drive (empieza por https://drive.google.com/…).` };
     if (c.tipo === 'enlace' && val) { const n = normalizarEnlace(val); if (!n) return { error: `«${c.nombre}» no es un enlace válido.` }; val = n; }
     if (c.obligatorio && !val) return { error: `Falta rellenar «${c.nombre}».` };
     if (val) v[c.id] = val;
